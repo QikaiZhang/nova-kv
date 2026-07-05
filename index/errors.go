@@ -1,1 +1,3 @@
 package index
+
+var ()
