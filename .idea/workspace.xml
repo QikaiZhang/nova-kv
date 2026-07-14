@@ -5,17 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c3d40a79-33aa-4109-9c71-240f684237ab" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/fio/file_io.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/fio/file_io_test.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/fio/io_manager.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/index/btree_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/data_file.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/log_records.go" beforeDir="false" afterPath="$PROJECT_DIR$/data/log_records.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/index/btree.go" beforeDir="false" afterPath="$PROJECT_DIR$/index/btree.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/index/db.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/index/index.go" beforeDir="false" afterPath="$PROJECT_DIR$/index/index.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -35,97 +25,97 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.3228295117740084E-33" />
-      <entry key="MS500" value="2.711747483278298E-7" />
-      <entry key="S2" value="0.03132614317542019" />
-      <entry key="S5" value="0.3693776495036796" />
-      <entry key="S10" value="0.8556612240791284" />
-      <entry key="S30" value="1.7466273310671252" />
-      <entry key="S60" value="3.3587736680808784" />
-      <entry key="M2" value="6.089308592997159" />
-      <entry key="M5" value="10.596161958553909" />
-      <entry key="M10" value="22.138889839013014" />
-      <entry key="M15" value="37.6606199681643" />
-      <entry key="M30" value="77.53298483518206" />
-      <entry key="H1" value="118.80850747254985" />
-      <entry key="H2" value="149.19983660930205" />
-      <entry key="H4" value="167.7496438054258" />
-      <entry key="D1" value="185.25373513423315" />
-      <entry key="W1" value="188.45957169727933" />
+      <entry key="MS100" value="1.0141802410032592" />
+      <entry key="MS500" value="1.5591164097024115" />
+      <entry key="S2" value="5.127024099969613" />
+      <entry key="S5" value="11.135214817174857" />
+      <entry key="S10" value="18.768814748710607" />
+      <entry key="S30" value="32.44429719421258" />
+      <entry key="S60" value="39.42839552616258" />
+      <entry key="M2" value="45.442429631854324" />
+      <entry key="M5" value="52.364865044726606" />
+      <entry key="M10" value="64.61888566652883" />
+      <entry key="M15" value="80.29162739939242" />
+      <entry key="M30" value="120.39196111797277" />
+      <entry key="H1" value="162.00131051736324" />
+      <entry key="H2" value="192.7089894018739" />
+      <entry key="H4" value="211.47757370752694" />
+      <entry key="D1" value="229.20419736855524" />
+      <entry key="W1" value="232.4523851461053" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.0" />
-      <entry key="MS500" value="1.0" />
-      <entry key="S2" value="1.0" />
-      <entry key="S5" value="1.0" />
-      <entry key="S10" value="1.0" />
-      <entry key="S30" value="1.0000000000000004" />
-      <entry key="S60" value="1.0000000356858392" />
-      <entry key="M2" value="1.0003782340481087" />
-      <entry key="M5" value="1.1407636802430199" />
-      <entry key="M10" value="2.2115052224778844" />
-      <entry key="M15" value="3.619747979391234" />
-      <entry key="M30" value="6.904839610423839" />
-      <entry key="H1" value="10.030454765948736" />
-      <entry key="H2" value="12.224269576384296" />
-      <entry key="H4" value="13.529988324948867" />
-      <entry key="D1" value="14.74268483502023" />
-      <entry key="W1" value="14.962926564744974" />
+      <entry key="MS100" value="4.670343101716305E-90" />
+      <entry key="MS500" value="1.361036453499578E-18" />
+      <entry key="S2" value="3.415603416833801E-5" />
+      <entry key="S5" value="0.01634507718425827" />
+      <entry key="S10" value="0.1278478673434105" />
+      <entry key="S30" value="0.5037686792035548" />
+      <entry key="S60" value="0.7097666624732184" />
+      <entry key="M2" value="0.8427951438524549" />
+      <entry key="M5" value="1.0651696949680092" />
+      <entry key="M10" value="2.136975422911602" />
+      <entry key="M15" value="3.537958272556627" />
+      <entry key="M30" value="6.826385042568311" />
+      <entry key="H1" value="9.973307665631134" />
+      <entry key="H2" value="12.18939680948619" />
+      <entry key="H4" value="13.51067571454611" />
+      <entry key="D1" value="14.739175479779664" />
+      <entry key="W1" value="14.962417686874042" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="2.0387888657919155E-4" />
-      <entry key="MS500" value="0.18275723114765724" />
-      <entry key="S2" value="0.6769557739958589" />
-      <entry key="S5" value="1.1768624916460533" />
-      <entry key="S10" value="1.733811577190106" />
-      <entry key="S30" value="2.6939320900770163" />
-      <entry key="S60" value="4.326390297821239" />
-      <entry key="M2" value="7.069336836415879" />
-      <entry key="M5" value="11.723969075657116" />
-      <entry key="M10" value="24.328742171343833" />
-      <entry key="M15" value="41.250295846828266" />
-      <entry key="M30" value="84.40216694375553" />
-      <entry key="H1" value="128.81049982063638" />
-      <entry key="H2" value="161.40599608340648" />
-      <entry key="H4" value="181.26940102794563" />
-      <entry key="D1" value="199.99453069298067" />
-      <entry key="W1" value="203.42222356150913" />
+      <entry key="MS100" value="0.16174028289595518" />
+      <entry key="MS500" value="1.1289991204374519" />
+      <entry key="S2" value="4.908675387013107" />
+      <entry key="S5" value="11.029448040464176" />
+      <entry key="S10" value="18.811155435800803" />
+      <entry key="S30" value="32.89385859014139" />
+      <entry key="S60" value="40.10051768696895" />
+      <entry key="M2" value="46.26050962497768" />
+      <entry key="M5" value="53.41484561355766" />
+      <entry key="M10" value="66.7333814212052" />
+      <entry key="M15" value="83.79915293191894" />
+      <entry key="M30" value="127.18257250221485" />
+      <entry key="H1" value="171.9460569607645" />
+      <entry key="H2" value="204.8801972119795" />
+      <entry key="H4" value="224.97796762354233" />
+      <entry key="D1" value="243.94147313574837" />
+      <entry key="W1" value="247.41452658659162" />
     </decayedShown>
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 0,
-  "fromUser": false
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 0,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3GS8MhUgqWgQue1bKuvp03XQP2W" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "DefaultGoTemplateProperty": "Go File",
-    "Go 测试.btree_test.go.executor": "Run",
-    "Go 测试.nova-kv/index 中的 TestBTree_Delete.executor": "Run",
-    "Go 测试.nova-kv/index 中的 TestBTree_Get.executor": "Run",
-    "Go 测试.nova-kv/index 中的 TestBTree_Put.executor": "Run",
-    "RunOnceActivity.GoLinterPluginOnboardingV2": "true",
-    "RunOnceActivity.GoLinterPluginStorageMigration": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.go.analysis.ui.options.defaults": "true",
-    "RunOnceActivity.go.formatter.settings.were.checked": "true",
-    "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "main",
-    "go.sdk.automatically.set": "true",
-    "last_opened_file_path": "/Users/kianzhang/Desktop/github_proj/nova-kv",
-    "node.js.detected.package.eslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;DefaultGoTemplateProperty&quot;: &quot;Go File&quot;,
+    &quot;Go 测试.btree_test.go.executor&quot;: &quot;Run&quot;,
+    &quot;Go 测试.nova-kv/index 中的 TestBTree_Delete.executor&quot;: &quot;Run&quot;,
+    &quot;Go 测试.nova-kv/index 中的 TestBTree_Get.executor&quot;: &quot;Run&quot;,
+    &quot;Go 测试.nova-kv/index 中的 TestBTree_Put.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.GoLinterPluginOnboardingV2&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.GoLinterPluginStorageMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.analysis.ui.options.defaults&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.modules.go.list.on.any.changes.was.set&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;go.sdk.automatically.set&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/kianzhang/Desktop/github_proj/nova-kv&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Go 测试.nova-kv/index 中的 TestBTree_Delete">
     <configuration name="btree_test.go" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
       <module name="nova-kv" />
