@@ -1,8 +1,13 @@
 package novakv
 
 import (
+	"io"
 	"nova-kv/data"
 	"nova-kv/index"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -25,7 +30,12 @@ func Open(options Options) (*DB, error) {
 	// 1. 参数校验
 	// TODO: 校验 DirPath、DataFileSize 合法性
 
-	// 2. 初始化 DB 结构体
+	// 2. 确保数据目录存在
+	if err := os.MkdirAll(options.DirPath, os.ModePerm); err != nil {
+		return nil, err
+	}
+
+	// 3. 初始化 DB 结构体
 	db := &DB{
 		options:    options,
 		mu:         new(sync.RWMutex),
@@ -33,13 +43,15 @@ func Open(options Options) (*DB, error) {
 		index:      index.NewBTree(),
 	}
 
-	// 3. 加载数据目录下的所有数据文件
+	// 4. 加载数据目录下的所有数据文件
 	if err := db.loadDataFiles(); err != nil {
 		return nil, err
 	}
 
-	// 4. 从数据文件中构建索引
-	// TODO: loadIndexFromDataFiles
+	// 5. 从数据文件中构建索引
+	if err := db.loadIndexFromDataFiles(); err != nil {
+		return nil, err
+	}
 
 	return db, nil
 }
@@ -235,16 +247,117 @@ func (db *DB) getDataFile(fid uint32) (*data.DataFile, error) {
 	return nil, ErrDataFileNotFound
 }
 
+// 强烈建议手写，你将收获：理解启动恢复流程、文件命名约定、活跃文件判定逻辑
 // loadDataFiles 启动时加载所有数据文件
-// TODO: 完整实现，需要遍历目录、按文件 ID 排序、区分 active/older
 func (db *DB) loadDataFiles() error {
-	// 1. 遍历数据目录，找到所有 .data 文件
-	// 2. 从文件名中解析出 FileID
-	// 3. 按 ID 从小到大排序
-	// 4. 依次打开所有文件
-	// 5. 最大 ID 的文件设为 activeFile，其余放入 olderFiles
-	// 6. 设置 activeFile 的 WriteOff（文件当前大小）
+	// 1. 读取数据目录
+	dirEntries, err := os.ReadDir(db.options.DirPath)
+	if err != nil {
+		return err
+	}
 
-	// 临时：初始化一个空文件，保证 Put 能跑
-	return db.setActiveDataFile()
+	var fileIds []int
+	// 2. 遍历目录，筛选 .data 文件并解析 ID
+	for _, entry := range dirEntries {
+		if strings.HasSuffix(entry.Name(), data.DataFileNameSuffix) {
+			// 文件名格式：000000001.data
+			splitNames := strings.Split(entry.Name(), ".")
+			fileId, err := strconv.Atoi(splitNames[0])
+			if err != nil {
+				// 文件名不合法的跳过
+				continue
+			}
+			fileIds = append(fileIds, fileId)
+		}
+	}
+
+	// 3. 按文件 ID 从小到大排序
+	sort.Ints(fileIds)
+
+	// 4. 依次打开所有数据文件
+	for i, fid := range fileIds {
+		dataFile, err := data.NewDataFile(db.options.DirPath, uint32(fid))
+		if err != nil {
+			return err
+		}
+		if i == len(fileIds)-1 {
+			// 最大 ID 的是活跃文件
+			db.activeFile = dataFile
+		} else {
+			// 其余是旧文件
+			db.olderFiles[uint32(fid)] = dataFile
+		}
+	}
+
+	// 5. 如果没有任何文件（第一次启动），初始化一个空的活跃文件
+	if db.activeFile == nil {
+		return db.setActiveDataFile()
+	}
+
+	// 6. 设置活跃文件的 WriteOff（当前文件大小）
+	activeFilePath := data.GetDataFileName(db.options.DirPath, db.activeFile.FileId)
+	stat, err := os.Stat(activeFilePath)
+	if err != nil {
+		return err
+	}
+	db.activeFile.WriteOff = stat.Size()
+
+	return nil
+}
+
+// 强烈建议手写，你将收获：理解磁盘是真相来源、索引可重建、墓碑记录的处理
+// loadIndexFromDataFiles 从所有数据文件中重建内存索引
+func (db *DB) loadIndexFromDataFiles() error {
+	// 没有文件，第一次启动
+	if db.activeFile == nil {
+		return nil
+	}
+
+	// 收集所有需要遍历的文件 ID，按从小到大顺序
+	var fileIds []int
+	for fid := range db.olderFiles {
+		fileIds = append(fileIds, int(fid))
+	}
+	fileIds = append(fileIds, int(db.activeFile.FileId))
+	sort.Ints(fileIds)
+
+	// 遍历每个文件，逐条读取并更新索引
+	for _, fid := range fileIds {
+		var dataFile *data.DataFile
+		if uint32(fid) == db.activeFile.FileId {
+			dataFile = db.activeFile
+		} else {
+			dataFile = db.olderFiles[uint32(fid)]
+		}
+
+		var offset int64 = 0
+		for {
+			logRecord, size, err := dataFile.ReadLogRecord(offset)
+			if err != nil {
+				// 读到文件末尾，结束
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+
+			// 构建索引位置
+			pos := &data.LogRecordPos{
+				Fid:    uint32(fid),
+				Offset: offset,
+				Size:   uint32(size),
+			}
+
+			// 根据记录类型更新索引
+			if logRecord.Type == data.LogRecordNormal {
+				db.index.Put(logRecord.Key, pos)
+			} else if logRecord.Type == data.LogRecordDeleted {
+				db.index.Delete(logRecord.Key)
+			}
+
+			offset += size
+		}
+	}
+
+	return nil
 }

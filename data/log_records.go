@@ -35,8 +35,9 @@ type LogRecordPos struct {
 // CRC(4) + Type(1) + KeySize(4) + ValueSize(4) = 13 字节
 const maxLogRecordHeaderSize = 4 + 1 + binary.MaxVarintLen32*2
 
+// 强烈建议手写，你将收获：理解二进制协议设计、变长编码原理、内存布局计算
 // EncodeLogRecord 将 LogRecord 编码为二进制字节流
-// 返回编码后的字节数组和实际头部大小
+// 返回编码后的字节数组和实际记录总大小
 func EncodeLogRecord(logRecord *LogRecord) ([]byte, int64) {
 	// 预分配 header 空间（最大可能值）
 	header := make([]byte, maxLogRecordHeaderSize)
@@ -61,15 +62,16 @@ func EncodeLogRecord(logRecord *LogRecord) ([]byte, int64) {
 	copy(encBytes[index:index+len(logRecord.Key)], logRecord.Key)
 	copy(encBytes[index+len(logRecord.Key):], logRecord.Value)
 
-	// 计算 CRC（从 Type 开始到末尾）
-	// TODO: 后续补充 CRC 校验，先留空
+	// 强烈建议手写，你将收获：理解数据完整性校验、磁盘静默损坏防护
+	// TODO: 补充 CRC 校验
 	// crc := crc32.ChecksumIEEE(encBytes[4:])
 	// binary.LittleEndian.PutUint32(encBytes[:4], crc)
 
 	return encBytes, int64(size)
 }
 
-// decodeLogRecordHeader 从字节数组中解码 LogRecord 的 header 部分
+// 强烈建议手写，你将收获：理解二进制协议解析、变长解码、边界判断
+// DecodeLogRecordHeader 从字节数组中解码 LogRecord 的 header 部分
 // 返回 header 信息和 header 实际占用的字节数
 func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64) {
 	if len(buf) <= 4 {
