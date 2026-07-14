@@ -15,6 +15,7 @@ type Indexer interface {
 	delete(key []byte) bool
 }
 
+// 为啥把 item放在这里
 type Item struct {
 	key []byte
 	pos *data.LogRecordPos

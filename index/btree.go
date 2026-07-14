@@ -14,8 +14,8 @@ type BTree struct {
 
 func NewBTree() *BTree {
 	return &BTree{
-		btree: btree.New(32),
-		lock:  new(sync.RWMutex),
+		btree: btree.New(32),     //叶子节点数量
+		lock:  new(sync.RWMutex), //并发安全
 	}
 }
 
@@ -37,7 +37,7 @@ func (bt *BTree) Get(key []byte) *data.LogRecordPos {
 	if resItem == nil {
 		return nil
 	}
-	return resItem.(*Item).pos
+	return resItem.(*Item).pos //这个返回值没太懂 resItem到底是个啥
 }
 func (bt *BTree) delete(key []byte) bool {
 	item := &Item{key: key}

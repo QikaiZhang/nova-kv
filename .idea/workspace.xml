@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="c3d40a79-33aa-4109-9c71-240f684237ab" name="更改" comment="">
+      <change afterPath="$PROJECT_DIR$/fio/file_io.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/fio/file_io_test.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/fio/io_manager.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/index/btree_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/data_file.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/log_records.go" beforeDir="false" afterPath="$PROJECT_DIR$/data/log_records.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/index/btree.go" beforeDir="false" afterPath="$PROJECT_DIR$/index/btree.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/index/db.go" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/index/index.go" beforeDir="false" afterPath="$PROJECT_DIR$/index/index.go" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
+  </component>
+  <component name="GOROOT" url="file:///opt/homebrew/opt/go/libexec" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.3228295117740084E-33" />
+      <entry key="MS500" value="2.711747483278298E-7" />
+      <entry key="S2" value="0.03132614317542019" />
+      <entry key="S5" value="0.3693776495036796" />
+      <entry key="S10" value="0.8556612240791284" />
+      <entry key="S30" value="1.7466273310671252" />
+      <entry key="S60" value="3.3587736680808784" />
+      <entry key="M2" value="6.089308592997159" />
+      <entry key="M5" value="10.596161958553909" />
+      <entry key="M10" value="22.138889839013014" />
+      <entry key="M15" value="37.6606199681643" />
+      <entry key="M30" value="77.53298483518206" />
+      <entry key="H1" value="118.80850747254985" />
+      <entry key="H2" value="149.19983660930205" />
+      <entry key="H4" value="167.7496438054258" />
+      <entry key="D1" value="185.25373513423315" />
+      <entry key="W1" value="188.45957169727933" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0" />
+      <entry key="S5" value="1.0" />
+      <entry key="S10" value="1.0" />
+      <entry key="S30" value="1.0000000000000004" />
+      <entry key="S60" value="1.0000000356858392" />
+      <entry key="M2" value="1.0003782340481087" />
+      <entry key="M5" value="1.1407636802430199" />
+      <entry key="M10" value="2.2115052224778844" />
+      <entry key="M15" value="3.619747979391234" />
+      <entry key="M30" value="6.904839610423839" />
+      <entry key="H1" value="10.030454765948736" />
+      <entry key="H2" value="12.224269576384296" />
+      <entry key="H4" value="13.529988324948867" />
+      <entry key="D1" value="14.74268483502023" />
+      <entry key="W1" value="14.962926564744974" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="2.0387888657919155E-4" />
+      <entry key="MS500" value="0.18275723114765724" />
+      <entry key="S2" value="0.6769557739958589" />
+      <entry key="S5" value="1.1768624916460533" />
+      <entry key="S10" value="1.733811577190106" />
+      <entry key="S30" value="2.6939320900770163" />
+      <entry key="S60" value="4.326390297821239" />
+      <entry key="M2" value="7.069336836415879" />
+      <entry key="M5" value="11.723969075657116" />
+      <entry key="M10" value="24.328742171343833" />
+      <entry key="M15" value="41.250295846828266" />
+      <entry key="M30" value="84.40216694375553" />
+      <entry key="H1" value="128.81049982063638" />
+      <entry key="H2" value="161.40599608340648" />
+      <entry key="H4" value="181.26940102794563" />
+      <entry key="D1" value="199.99453069298067" />
+      <entry key="W1" value="203.42222356150913" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 0,
+  "fromUser": false
+}]]></component>
+  <component name="ProjectId" id="3GS8MhUgqWgQue1bKuvp03XQP2W" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "DefaultGoTemplateProperty": "Go File",
+    "Go 测试.btree_test.go.executor": "Run",
+    "Go 测试.nova-kv/index 中的 TestBTree_Delete.executor": "Run",
+    "Go 测试.nova-kv/index 中的 TestBTree_Get.executor": "Run",
+    "Go 测试.nova-kv/index 中的 TestBTree_Put.executor": "Run",
+    "RunOnceActivity.GoLinterPluginOnboardingV2": "true",
+    "RunOnceActivity.GoLinterPluginStorageMigration": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.go.analysis.ui.options.defaults": "true",
+    "RunOnceActivity.go.formatter.settings.were.checked": "true",
+    "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "main",
+    "go.sdk.automatically.set": "true",
+    "last_opened_file_path": "/Users/kianzhang/Desktop/github_proj/nova-kv",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm"
+  }
+}]]></component>
+  <component name="RunManager" selected="Go 测试.nova-kv/index 中的 TestBTree_Delete">
+    <configuration name="btree_test.go" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="nova-kv" />
+      <working_directory value="$PROJECT_DIR$/index" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="FILE" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/index/btree_test.go" />
+      <framework value="gotest" />
+      <method v="2" />
+    </configuration>
+    <configuration name="nova-kv/index 中的 TestBTree_Delete" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="nova-kv" />
+      <working_directory value="$PROJECT_DIR$/index" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="nova-kv/index" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="^\QTestBTree_Delete\E$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="nova-kv/index 中的 TestBTree_Get" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="nova-kv" />
+      <working_directory value="$PROJECT_DIR$/index" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="nova-kv/index" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="^\QTestBTree_Get\E$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="nova-kv/index 中的 TestBTree_Put" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="nova-kv" />
+      <working_directory value="$PROJECT_DIR$/index" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="nova-kv/index" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="^\QTestBTree_Put\E$" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go 测试.nova-kv/index 中的 TestBTree_Delete" />
+        <item itemvalue="Go 测试.nova-kv/index 中的 TestBTree_Get" />
+        <item itemvalue="Go 测试.nova-kv/index 中的 TestBTree_Put" />
+        <item itemvalue="Go 测试.btree_test.go" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-gosdk-72a9cf600ed8-3dd3895e5e08-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-261.26222.72" />
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-GO-261.26222.72" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="c3d40a79-33aa-4109-9c71-240f684237ab" name="更改" comment="" />
+      <created>1783953563275</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1783953563275</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
