@@ -12,7 +12,8 @@ type Indexer interface {
 	Put(key []byte, pos *data.LogRecordPos) bool
 	//Get 根据 key 取出数据的位置信息
 	Get(key []byte) *data.LogRecordPos
-	delete(key []byte) bool
+	// Delete 根据 key 删除索引
+	Delete(key []byte) bool
 }
 
 // 为啥把 item放在这里
