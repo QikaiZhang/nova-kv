@@ -7,7 +7,8 @@ type FileIO struct {
 }
 
 func NewFileIO(path string) (*FileIO, error) {
-	fd, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, DatafilePerm)
+	// O_APPEND 保证每次写入都是追加到文件末尾，避免覆盖已有数据
+	fd, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, DatafilePerm)
 	if err != nil {
 		return nil, err
 	}

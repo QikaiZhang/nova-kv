@@ -1,6 +1,7 @@
 package novakv
 
 import (
+	"fmt"
 	"io"
 	"nova-kv/data"
 	"nova-kv/index"
@@ -25,30 +26,57 @@ type DB struct {
 	index index.Indexer // 内存索引，接口类型，方便后续切换不同索引实现
 }
 
+// Strongly Recommended to Handwrite
+// validateOptions 校验启动配置：非空目录、合法文件大小、已知索引类型
+// 在 Open 最开始执行，失败不产生任何磁盘副作用
+func validateOptions(opts *Options) error {
+	if opts.DirPath == "" {
+		return ErrOptionsDirPathEmpty
+	}
+	if opts.DataFileSize <= 0 {
+		return ErrOptionsDataFileSizeTooSmall
+	}
+	if opts.IndexType != BTree {
+		return ErrOptionsIndexTypeUnknown
+	}
+	return nil
+}
+
 // Open 打开/创建一个数据库实例
 func Open(options Options) (*DB, error) {
-	// 1. 参数校验
-	// TODO: 校验 DirPath、DataFileSize 合法性
+	// 1. 参数校验（优先执行，不做任何磁盘操作）
+	if err := validateOptions(&options); err != nil {
+		return nil, err
+	}
 
 	// 2. 确保数据目录存在
 	if err := os.MkdirAll(options.DirPath, os.ModePerm); err != nil {
 		return nil, err
 	}
 
-	// 3. 初始化 DB 结构体
+	// 3. 根据配置选择索引实现
+	var idx index.Indexer
+	switch options.IndexType {
+	case BTree:
+		idx = index.NewBTree()
+	default:
+		return nil, ErrOptionsIndexTypeUnknown
+	}
+
+	// 4. 初始化 DB 结构体
 	db := &DB{
 		options:    options,
 		mu:         new(sync.RWMutex),
 		olderFiles: make(map[uint32]*data.DataFile),
-		index:      index.NewBTree(),
+		index:      idx,
 	}
 
-	// 4. 加载数据目录下的所有数据文件
+	// 5. 加载数据目录下的所有数据文件
 	if err := db.loadDataFiles(); err != nil {
 		return nil, err
 	}
 
-	// 5. 从数据文件中构建索引
+	// 6. 从数据文件中构建索引
 	if err := db.loadIndexFromDataFiles(); err != nil {
 		return nil, err
 	}
@@ -247,38 +275,42 @@ func (db *DB) getDataFile(fid uint32) (*data.DataFile, error) {
 	return nil, ErrDataFileNotFound
 }
 
-// 强烈建议手写，你将收获：理解启动恢复流程、文件命名约定、活跃文件判定逻辑
-// loadDataFiles 启动时加载所有数据文件
+// Strongly Recommended to Handwrite：理解启动恢复流程、文件命名约定、活跃文件判定逻辑
+// loadDataFiles 扫描目录，按 9 位零填充数字筛选 .data 文件，ID 最大的为 active file
+// 文件 ID 不要求连续——Merge 或手动清理可能留下间隔
 func (db *DB) loadDataFiles() error {
-	// 1. 读取数据目录
 	dirEntries, err := os.ReadDir(db.options.DirPath)
 	if err != nil {
 		return err
 	}
 
 	var fileIds []int
-	// 2. 遍历目录，筛选 .data 文件并解析 ID
+	// 文件名格式：恰好 9 位数字 + .data（如 000000001.data）
+	// 非此格式静默跳过（备份文件、临时文件、非法命名）
 	for _, entry := range dirEntries {
-		if strings.HasSuffix(entry.Name(), data.DataFileNameSuffix) {
-			// 文件名格式：000000001.data
-			splitNames := strings.Split(entry.Name(), ".")
-			fileId, err := strconv.Atoi(splitNames[0])
-			if err != nil {
-				// 文件名不合法的跳过
-				continue
-			}
-			fileIds = append(fileIds, fileId)
+		if !strings.HasSuffix(entry.Name(), data.DataFileNameSuffix) {
+			continue
 		}
+
+		// TrimSuffix 去后缀 + 长度校验，比 Split(".")[0] 更严谨
+		trimmed := strings.TrimSuffix(entry.Name(), data.DataFileNameSuffix)
+		if len(trimmed) != 9 {
+			continue
+		}
+		fileId, err := strconv.Atoi(trimmed)
+		if err != nil || fileId < 0 {
+			continue
+		}
+		fileIds = append(fileIds, fileId)
 	}
 
-	// 3. 按文件 ID 从小到大排序
 	sort.Ints(fileIds)
 
-	// 4. 依次打开所有数据文件
+	// 依次打开所有数据文件
 	for i, fid := range fileIds {
 		dataFile, err := data.NewDataFile(db.options.DirPath, uint32(fid))
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to open data file %d: %w", fid, err)
 		}
 		if i == len(fileIds)-1 {
 			// 最大 ID 的是活跃文件
@@ -289,24 +321,26 @@ func (db *DB) loadDataFiles() error {
 		}
 	}
 
-	// 5. 如果没有任何文件（第一次启动），初始化一个空的活跃文件
+	// 如果没有任何文件（第一次启动），初始化一个空的活跃文件
 	if db.activeFile == nil {
 		return db.setActiveDataFile()
 	}
 
-	// 6. 设置活跃文件的 WriteOff（当前文件大小）
+	// 设置活跃文件的 WriteOff，确保重启后追加写入而非覆盖
 	activeFilePath := data.GetDataFileName(db.options.DirPath, db.activeFile.FileId)
 	stat, err := os.Stat(activeFilePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to stat active file %d: %w", db.activeFile.FileId, err)
 	}
 	db.activeFile.WriteOff = stat.Size()
 
 	return nil
 }
 
-// 强烈建议手写，你将收获：理解磁盘是真相来源、索引可重建、墓碑记录的处理
-// loadIndexFromDataFiles 从所有数据文件中重建内存索引
+// Strongly Recommended to Handwrite：理解磁盘是真相来源、索引可重建、墓碑记录的处理
+// loadIndexFromDataFiles 从所有数据文件重建内存索引
+// 从最老文件到最新文件逐条读取，同一 key 后处理的值覆盖先处理的
+// 遇到无法解码的记录时放弃当前文件剩余部分，继续下一个文件（保守安全策略）
 func (db *DB) loadIndexFromDataFiles() error {
 	// 没有文件，第一次启动
 	if db.activeFile == nil {
@@ -321,6 +355,8 @@ func (db *DB) loadIndexFromDataFiles() error {
 	fileIds = append(fileIds, int(db.activeFile.FileId))
 	sort.Ints(fileIds)
 
+	var corruptedRecords []*CorruptedRecordError
+
 	// 遍历每个文件，逐条读取并更新索引
 	for _, fid := range fileIds {
 		var dataFile *data.DataFile
@@ -334,11 +370,17 @@ func (db *DB) loadIndexFromDataFiles() error {
 		for {
 			logRecord, size, err := dataFile.ReadLogRecord(offset)
 			if err != nil {
-				// 读到文件末尾，结束
 				if err == io.EOF {
 					break
 				}
-				return err
+				// 遇到非 EOF 错误（解码失败、数据损坏等）
+				// 记录损坏位置，跳过当前文件剩余部分，继续下一个文件
+				corruptedRecords = append(corruptedRecords, &CorruptedRecordError{
+					FileId: uint32(fid),
+					Offset: offset,
+					Cause:  err,
+				})
+				break
 			}
 
 			// 构建索引位置
@@ -349,6 +391,7 @@ func (db *DB) loadIndexFromDataFiles() error {
 			}
 
 			// 根据记录类型更新索引
+			// 未知记录类型被静默忽略（向前兼容）
 			if logRecord.Type == data.LogRecordNormal {
 				db.index.Put(logRecord.Key, pos)
 			} else if logRecord.Type == data.LogRecordDeleted {
@@ -357,6 +400,11 @@ func (db *DB) loadIndexFromDataFiles() error {
 
 			offset += size
 		}
+	}
+
+	// 如果有损坏记录，返回第一个作为聚合错误
+	if len(corruptedRecords) > 0 {
+		return corruptedRecords[0]
 	}
 
 	return nil
