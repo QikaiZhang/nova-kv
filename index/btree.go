@@ -39,7 +39,7 @@ func (bt *BTree) Get(key []byte) *data.LogRecordPos {
 	}
 	return resItem.(*Item).pos //这个返回值没太懂 resItem到底是个啥
 }
-func (bt *BTree) delete(key []byte) bool {
+func (bt *BTree) Delete(key []byte) bool {
 	item := &Item{key: key}
 	bt.lock.Lock()
 	oldItem := bt.btree.Delete(item)
