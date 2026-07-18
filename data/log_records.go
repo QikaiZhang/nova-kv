@@ -17,7 +17,8 @@ const (
 // +-------+--------+-----------+-------------+-----+-------+
 // | CRC   |  Type  |  KeySize  |  ValueSize  | Key | Value |
 // +-------+--------+-----------+-------------+-----+-------+
-//   4B      1B       4B(变长)    4B(变长)       变长   变长
+//
+//	4B      1B       4B(变长)    4B(变长)       变长   变长
 type LogRecord struct {
 	Key   []byte
 	Value []byte
@@ -73,7 +74,7 @@ func EncodeLogRecord(logRecord *LogRecord) ([]byte, int64) {
 // 强烈建议手写，你将收获：理解二进制协议解析、变长解码、边界判断
 // DecodeLogRecordHeader 从字节数组中解码 LogRecord 的 header 部分
 // 返回 header 信息和 header 实际占用的字节数
-func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64) {
+func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64, error) {
 	if len(buf) <= 4 {
 		return nil, 0
 	}
@@ -86,6 +87,10 @@ func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64) {
 	var index = 5
 	// 读取 KeySize
 	keySize, n := binary.Varint(buf[index:])
+	if keySize < 0 {
+		//补充
+		return nil, nil, error("keySize 非法")
+	}
 	index += n
 	header.keySize = uint32(keySize)
 
