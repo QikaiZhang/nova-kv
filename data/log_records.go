@@ -1,6 +1,9 @@
 package data
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"errors"
+)
 
 // LogRecordType 日志记录类型
 type LogRecordType = byte
@@ -34,6 +37,11 @@ type LogRecordPos struct {
 // logRecordHeader LogRecord 的固定头部
 // CRC(4) + Type(1) + KeySize(4) + ValueSize(4) = 13 字节
 const maxLogRecordHeaderSize = 4 + 1 + binary.MaxVarintLen32*2
+
+var (
+	// ErrIncompleteHeader 头部数据不完整，通常是文件尾部写入中断导致
+	ErrIncompleteHeader = errors.New("log record header is incomplete, possible truncated write at file tail")
+)
 
 // 强烈建议手写，你将收获：理解二进制协议设计、变长编码原理、内存布局计算
 // EncodeLogRecord 将 LogRecord 编码为二进制字节流
@@ -73,6 +81,7 @@ func EncodeLogRecord(logRecord *LogRecord) ([]byte, int64) {
 // 强烈建议手写，你将收获：理解二进制协议解析、变长解码、边界判断
 // DecodeLogRecordHeader 从字节数组中解码 LogRecord 的 header 部分
 // 返回 header 信息和 header 实际占用的字节数
+// 若遇到不完整的 varint 编码（文件尾部写入中断），返回 nil, 0
 func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64) {
 	if len(buf) <= 4 {
 		return nil, 0
@@ -86,14 +95,23 @@ func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64) {
 	var index = 5
 	// 读取 KeySize
 	keySize, n := binary.Varint(buf[index:])
+	// n <= 0 说明 varint 编码被截断（文件尾部写入中断），不是合法的完整记录
+	if n <= 0 {
+		return nil, 0
+	}
 	index += n
 	header.keySize = uint32(keySize)
 
 	// 读取 ValueSize
 	valueSize, n := binary.Varint(buf[index:])
+	// 同上，截断的 varint 不可解码
+	if n <= 0 {
+		return nil, 0
+	}
 	index += n
 	header.valueSize = uint32(valueSize)
 
+	// 返回 header，调用方负责验证 keySize+valueSize 不超过文件剩余字节
 	return header, int64(index)
 }
 

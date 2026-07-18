@@ -1,6 +1,7 @@
 package novakv
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"nova-kv/data"
@@ -14,8 +15,8 @@ import (
 
 // DB 数据库主结构体
 type DB struct {
-	options    Options
-	mu         *sync.RWMutex
+	options Options
+	mu      *sync.RWMutex
 
 	// activeFile 当前活跃文件，可写
 	activeFile *data.DataFile
@@ -78,7 +79,13 @@ func Open(options Options) (*DB, error) {
 
 	// 6. 从数据文件中构建索引
 	if err := db.loadIndexFromDataFiles(); err != nil {
-		return nil, err
+		// 索引重建时遇到无法解析的记录（磁盘损坏或文件尾部空隙）
+		// 已恢复的索引数据仍然可用，不应阻止 DB 启动
+		var corrupted *CorruptedRecordError
+		if !errors.As(err, &corrupted) {
+			return nil, err
+		}
+		// corrupted records: return DB with partial recovery
 	}
 
 	return db, nil
