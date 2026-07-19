@@ -1,3 +1,4 @@
 .gocache/
 .tmp/
 .DS_Store
+.idea/
