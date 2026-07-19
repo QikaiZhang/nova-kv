@@ -1,6 +1,7 @@
 package novakv
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"nova-kv/data"
@@ -14,8 +15,8 @@ import (
 
 // DB 数据库主结构体
 type DB struct {
-	options    Options
-	mu         *sync.RWMutex
+	options Options
+	mu      *sync.RWMutex
 
 	// activeFile 当前活跃文件，可写
 	activeFile *data.DataFile
@@ -78,7 +79,13 @@ func Open(options Options) (*DB, error) {
 
 	// 6. 从数据文件中构建索引
 	if err := db.loadIndexFromDataFiles(); err != nil {
-		return nil, err
+		// 索引重建时遇到无法解析的记录（磁盘损坏或文件尾部空隙）
+		// 已恢复的索引数据仍然可用，不应阻止 DB 启动
+		var corrupted *CorruptedRecordError
+		if !errors.As(err, &corrupted) {
+			return nil, err
+		}
+		// corrupted records: return DB with partial recovery
 	}
 
 	return db, nil
@@ -342,8 +349,10 @@ func (db *DB) loadDataFiles() error {
 // 从最老文件到最新文件逐条读取，同一 key 后处理的值覆盖先处理的
 // 遇到无法解码的记录时放弃当前文件剩余部分，继续下一个文件（保守安全策略）
 func (db *DB) loadIndexFromDataFiles() error {
-	// 没有文件，第一次启动
-	if db.activeFile == nil {
+	// Invariant:
+	// 如果数据库存在任何数据文件，activeFile 一定非 nil。
+	// 因此 activeFile == nil 表示无需恢复索引。
+	if db.activeFile == nil && len(db.olderFiles) == 0 {
 		return nil
 	}
 
@@ -402,7 +411,7 @@ func (db *DB) loadIndexFromDataFiles() error {
 		}
 	}
 
-	// 如果有损坏记录，返回第一个作为聚合错误
+	// 如果有损坏记录，返回第一个作为聚合错误，备注：提前设计后续待优化
 	if len(corruptedRecords) > 0 {
 		return corruptedRecords[0]
 	}
