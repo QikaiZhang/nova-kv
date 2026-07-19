@@ -12,15 +12,15 @@ func TestBTree_Put(t *testing.T) {
 	bt := NewBTree()
 
 	// 测试插入 nil key
-	res := bt.Put(nil, &data.LogRecordPos{PosID: 1, Offset: 100})
+	res := bt.Put(nil, &data.LogRecordPos{Fid: 1, Offset: 100})
 	assert.True(t, res)
 
 	// 测试插入正常 key
-	res2 := bt.Put([]byte("a"), &data.LogRecordPos{PosID: 1, Offset: 2})
+	res2 := bt.Put([]byte("a"), &data.LogRecordPos{Fid: 1, Offset: 2})
 	assert.True(t, res2)
 
 	// 测试插入相同 key（覆盖）
-	res3 := bt.Put([]byte("a"), &data.LogRecordPos{PosID: 2, Offset: 200})
+	res3 := bt.Put([]byte("a"), &data.LogRecordPos{Fid: 2, Offset: 200})
 	assert.True(t, res3)
 }
 
@@ -32,21 +32,21 @@ func TestBTree_Get(t *testing.T) {
 	assert.Nil(t, pos)
 
 	// 插入数据后再获取
-	expectedPos := &data.LogRecordPos{PosID: 1, Offset: 100}
+	expectedPos := &data.LogRecordPos{Fid: 1, Offset: 100}
 	bt.Put([]byte("key1"), expectedPos)
 
 	pos = bt.Get([]byte("key1"))
 	assert.NotNil(t, pos)
-	assert.Equal(t, expectedPos.PosID, pos.PosID)
+	assert.Equal(t, expectedPos.Fid, pos.Fid)
 	assert.Equal(t, expectedPos.Offset, pos.Offset)
 
 	// 测试覆盖后的获取
-	newPos := &data.LogRecordPos{PosID: 2, Offset: 200}
+	newPos := &data.LogRecordPos{Fid: 2, Offset: 200}
 	bt.Put([]byte("key1"), newPos)
 
 	pos = bt.Get([]byte("key1"))
 	assert.NotNil(t, pos)
-	assert.Equal(t, newPos.PosID, pos.PosID)
+	assert.Equal(t, newPos.Fid, pos.Fid)
 	assert.Equal(t, newPos.Offset, pos.Offset)
 }
 
@@ -54,12 +54,12 @@ func TestBTree_Delete(t *testing.T) {
 	bt := NewBTree()
 
 	// 测试删除不存在的 key
-	res := bt.delete([]byte("not_exist"))
+	res := bt.Delete([]byte("not_exist"))
 	assert.False(t, res)
 
 	// 插入后删除
-	bt.Put([]byte("key1"), &data.LogRecordPos{PosID: 1, Offset: 100})
-	res = bt.delete([]byte("key1"))
+	bt.Put([]byte("key1"), &data.LogRecordPos{Fid: 1, Offset: 100})
+	res = bt.Delete([]byte("key1"))
 	assert.True(t, res)
 
 	// 验证已删除
@@ -67,7 +67,7 @@ func TestBTree_Delete(t *testing.T) {
 	assert.Nil(t, pos)
 
 	// 重复删除
-	res = bt.delete([]byte("key1"))
+	res = bt.Delete([]byte("key1"))
 	assert.False(t, res)
 }
 
@@ -81,7 +81,7 @@ func TestBTree_Concurrency(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			key := []byte{byte(i)}
-			bt.Put(key, &data.LogRecordPos{PosID: uint32(i), Offset: uint64(i * 100)})
+			bt.Put(key, &data.LogRecordPos{Fid: uint32(i), Offset: int64(i * 100)})
 		}(i)
 	}
 	wg.Wait()
@@ -91,7 +91,7 @@ func TestBTree_Concurrency(t *testing.T) {
 		key := []byte{byte(i)}
 		pos := bt.Get(key)
 		assert.NotNil(t, pos)
-		assert.Equal(t, int64(i), pos.PosID)
+		assert.Equal(t, uint32(i), pos.Fid)
 		assert.Equal(t, int64(i*100), pos.Offset)
 	}
 
@@ -112,7 +112,7 @@ func TestBTree_ItemTypeAssertion(t *testing.T) {
 	bt := NewBTree()
 
 	// 测试 Get 返回值的类型断言
-	bt.Put([]byte("test"), &data.LogRecordPos{PosID: 1, Offset: 100})
+	bt.Put([]byte("test"), &data.LogRecordPos{Fid: 1, Offset: 100})
 
 	item := &Item{key: []byte("test")}
 	resItem := bt.btree.Get(item)
@@ -125,6 +125,6 @@ func TestBTree_ItemTypeAssertion(t *testing.T) {
 	itemResult, ok := resItem.(*Item)
 	assert.True(t, ok)
 	assert.Equal(t, []byte("test"), itemResult.key)
-	assert.Equal(t, int64(1), itemResult.pos.PosID)
+	assert.Equal(t, uint32(1), itemResult.pos.Fid)
 	assert.Equal(t, int64(100), itemResult.pos.Offset)
 }

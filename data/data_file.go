@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"io"
 	"nova-kv/fio"
 	"path/filepath"
 )
@@ -37,40 +38,44 @@ func GetDataFileName(dirPath string, fileId uint32) string {
 	return filepath.Join(dirPath, fmt.Sprintf("%09d", fileId)+DataFileNameSuffix)
 }
 
-// ReadLogRecord 根据偏移读取一条 LogRecord
-// 返回记录本身、记录总大小
+// Strongly Recommended to Handwrite
+// ReadLogRecord 从指定偏移量读取一条 LogRecord
+// 注意：ReadAt 在文件末尾同时返回数据和 io.EOF，需区分"读 0 字节+EOF"（真结尾）vs"读 N 字节+EOF"（最后一条记录）
 func (df *DataFile) ReadLogRecord(offset int64) (*LogRecord, int64, error) {
-	// 先读 header（读最大可能的 header 大小，防止读少了）
 	headerBuf := make([]byte, maxLogRecordHeaderSize)
-	_, err := df.IoManager.Read(headerBuf, offset)
-	if err != nil {
+	n, err := df.IoManager.Read(headerBuf, offset)
+
+	// 读到 0 字节 + EOF = 真正文件末尾
+	if err == io.EOF && n == 0 {
+		return nil, 0, io.EOF
+	}
+	// 其他 I/O 错误（EOF 除外）= 真正的读取失败
+	if err != nil && err != io.EOF {
 		return nil, 0, err
 	}
 
-	// 解码 header
-	header, headerSize := DecodeLogRecordHeader(headerBuf)
+	// 即使 n < maxLogRecordHeaderSize，只要 header 能解码就继续
+	header, headerSize := DecodeLogRecordHeader(headerBuf[:n])
 	if header == nil || headerSize == 0 {
 		return nil, 0, fmt.Errorf("decode log record header failed")
 	}
 
-	// 构造完整的 LogRecord
 	record := &LogRecord{
 		Type: header.recordType,
 	}
 
-	// 读取 key 和 value
+	// 读取 key 和 value（EOF 允许，因为可能刚好读到记录末尾）
 	kvSize := int(header.keySize + header.valueSize)
 	if kvSize > 0 {
 		kvBuf := make([]byte, kvSize)
 		_, err = df.IoManager.Read(kvBuf, offset+headerSize)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			return nil, 0, err
 		}
 		record.Key = kvBuf[:header.keySize]
 		record.Value = kvBuf[header.keySize:]
 	}
 
-	// 记录总大小 = header + key + value
 	size := headerSize + int64(kvSize)
 	return record, size, nil
 }
