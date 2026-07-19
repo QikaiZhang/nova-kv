@@ -20,7 +20,8 @@ const (
 // +-------+--------+-----------+-------------+-----+-------+
 // | CRC   |  Type  |  KeySize  |  ValueSize  | Key | Value |
 // +-------+--------+-----------+-------------+-----+-------+
-//   4B      1B       4B(变长)    4B(变长)       变长   变长
+//
+//	4B      1B       4B(变长)    4B(变长)       变长   变长
 type LogRecord struct {
 	Key   []byte
 	Value []byte
@@ -81,8 +82,7 @@ func EncodeLogRecord(logRecord *LogRecord) ([]byte, int64) {
 // 强烈建议手写，你将收获：理解二进制协议解析、变长解码、边界判断
 // DecodeLogRecordHeader 从字节数组中解码 LogRecord 的 header 部分
 // 返回 header 信息和 header 实际占用的字节数
-// 若遇到不完整的 varint 编码（文件尾部写入中断），返回 nil, 0
-func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64) {
+func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64, error) {
 	if len(buf) <= 4 {
 		return nil, 0
 	}
@@ -97,8 +97,13 @@ func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64) {
 	keySize, n := binary.Varint(buf[index:])
 	// n <= 0 说明 varint 编码被截断（文件尾部写入中断），不是合法的完整记录
 	if n <= 0 {
-		return nil, 0
+    return nil, 0,error("varint 编码被截断")
+  }
+	if keySize < 0 {
+		//补充
+		return nil, nil, error("keySize 非法")
 	}
+  
 	index += n
 	header.keySize = uint32(keySize)
 
