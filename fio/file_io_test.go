@@ -447,3 +447,29 @@ func BenchmarkFileIO_LargeWrite(b *testing.B) {
 		}
 	}
 }
+
+func TestFileIO_Size(t *testing.T) {
+	tempDir := t.TempDir()
+	filePath := filepath.Join(tempDir, "test.data")
+	fio, err := NewFileIO(filePath)
+	require.NoError(t, err)
+	defer fio.Close()
+
+	// 空文件 Size 应为 0
+	size, err := fio.Size()
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), size)
+
+	// 写入后 Size 应更新
+	written := []byte("hello")
+	_, err = fio.Write(written)
+	require.NoError(t, err)
+	size, err = fio.Size()
+	require.NoError(t, err)
+	assert.Equal(t, int64(len(written)), size)
+
+	// 关闭后 Size 应该报错
+	require.NoError(t, fio.Close())
+	_, err = fio.Size()
+	assert.Error(t, err)
+}

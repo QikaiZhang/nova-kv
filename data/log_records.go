@@ -3,6 +3,8 @@ package data
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"hash/crc32"
 )
 
 // LogRecordType 日志记录类型
@@ -13,19 +15,24 @@ const (
 	LogRecordNormal LogRecordType = iota + 1
 	// LogRecordDeleted 墓碑记录，表示 key 已被删除
 	LogRecordDeleted
+	// LogRecordTxnFinished 事务完成标记，标识一个 WriteBatch 已完整提交
+	LogRecordTxnFinished
 )
 
 // LogRecord 磁盘上的日志记录（内存表示）
 // 磁盘编码格式：
-// +-------+--------+-----------+-------------+-----+-------+
-// | CRC   |  Type  |  KeySize  |  ValueSize  | Key | Value |
-// +-------+--------+-----------+-------------+-----+-------+
+// +-------+--------+-----------+-------------+-----------+-----+-------+
+// | CRC   |  Type  |  KeySize  |  ValueSize  |   SeqNo   | Key | Value |
+// +-------+--------+-----------+-------------+-----------+-----+-------+
 //
-//	4B      1B       4B(变长)    4B(变长)       变长   变长
+//	4B      1B       4B(变长)    4B(变长)      8B(变长)     变长   变长
 type LogRecord struct {
 	Key   []byte
 	Value []byte
 	Type  LogRecordType
+	// SeqNo 事务序列号，全局递增
+	// 0 表示非事务写入（直接 Put），>0 表示 WriteBatch 写入
+	SeqNo uint64
 }
 
 // LogRecordPos 索引指向的位置信息
@@ -36,8 +43,8 @@ type LogRecordPos struct {
 }
 
 // logRecordHeader LogRecord 的固定头部
-// CRC(4) + Type(1) + KeySize(4) + ValueSize(4) = 13 字节
-const maxLogRecordHeaderSize = 4 + 1 + binary.MaxVarintLen32*2
+// CRC(4) + Type(1) + KeySize(varint) + ValueSize(varint) + SeqNo(varint) = 最大 4+1+5+5+10 = 25 字节
+const maxLogRecordHeaderSize = 4 + 1 + binary.MaxVarintLen32*2 + binary.MaxVarintLen64
 
 var (
 	// ErrIncompleteHeader 头部数据不完整，通常是文件尾部写入中断导致
@@ -59,6 +66,8 @@ func EncodeLogRecord(logRecord *LogRecord) ([]byte, int64) {
 	index += binary.PutVarint(header[index:], int64(len(logRecord.Key)))
 	// 写入 ValueSize
 	index += binary.PutVarint(header[index:], int64(len(logRecord.Value)))
+	// 写入 SeqNo
+	index += binary.PutVarint(header[index:], int64(logRecord.SeqNo))
 
 	// 总大小 = header 实际大小 + key + value
 	var size = index + len(logRecord.Key) + len(logRecord.Value)
@@ -71,10 +80,8 @@ func EncodeLogRecord(logRecord *LogRecord) ([]byte, int64) {
 	copy(encBytes[index:index+len(logRecord.Key)], logRecord.Key)
 	copy(encBytes[index+len(logRecord.Key):], logRecord.Value)
 
-	// 强烈建议手写，你将收获：理解数据完整性校验、磁盘静默损坏防护
-	// TODO: 补充 CRC 校验
-	// crc := crc32.ChecksumIEEE(encBytes[4:])
-	// binary.LittleEndian.PutUint32(encBytes[:4], crc)
+	crc := crc32.ChecksumIEEE(encBytes[4:])
+	binary.LittleEndian.PutUint32(encBytes[:4], crc)
 
 	return encBytes, int64(size)
 }
@@ -84,11 +91,11 @@ func EncodeLogRecord(logRecord *LogRecord) ([]byte, int64) {
 // 返回 header 信息和 header 实际占用的字节数
 func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64, error) {
 	if len(buf) <= 4 {
-		return nil, 0
+		return nil, 0, fmt.Errorf("buf长度异常可能被截断")
 	}
 
 	header := &logRecordHeader{
-		// crc:  binary.LittleEndian.Uint32(buf[:4]),
+		crc:        binary.LittleEndian.Uint32(buf[:4]),
 		recordType: buf[4],
 	}
 
@@ -97,13 +104,12 @@ func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64, error) {
 	keySize, n := binary.Varint(buf[index:])
 	// n <= 0 说明 varint 编码被截断（文件尾部写入中断），不是合法的完整记录
 	if n <= 0 {
-    return nil, 0,error("varint 编码被截断")
-  }
-	if keySize < 0 {
-		//补充
-		return nil, nil, error("keySize 非法")
+		return nil, 0, fmt.Errorf("varint 编码被截断")
 	}
-  
+	if keySize < 0 {
+		return nil, 0, fmt.Errorf("kvSize非法")
+	}
+
 	index += n
 	header.keySize = uint32(keySize)
 
@@ -111,13 +117,26 @@ func DecodeLogRecordHeader(buf []byte) (*logRecordHeader, int64, error) {
 	valueSize, n := binary.Varint(buf[index:])
 	// 同上，截断的 varint 不可解码
 	if n <= 0 {
-		return nil, 0
+		return nil, 0, fmt.Errorf("record可能被截断")
 	}
 	index += n
 	header.valueSize = uint32(valueSize)
 
+	// 读取 SeqNo（新增字段，兼容旧格式：截断时 SeqNo=0）
+	seqNo, n := binary.Varint(buf[index:])
+	if n <= 0 {
+		// 旧格式没有 SeqNo 字段，截断时默认为 0
+		header.seqNo = 0
+	} else {
+		index += n
+		if seqNo < 0 {
+			return nil, 0, fmt.Errorf("seqNo非法")
+		}
+		header.seqNo = uint64(seqNo)
+	}
+
 	// 返回 header，调用方负责验证 keySize+valueSize 不超过文件剩余字节
-	return header, int64(index)
+	return header, int64(index), nil
 }
 
 // logRecordHeader 解码后的 header 信息（内部使用）
@@ -126,4 +145,5 @@ type logRecordHeader struct {
 	recordType LogRecordType
 	keySize    uint32
 	valueSize  uint32
+	seqNo      uint64
 }

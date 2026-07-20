@@ -32,13 +32,16 @@ func (bt *BTree) Put(key []byte, pos *data.LogRecordPos) bool {
 
 func (bt *BTree) Get(key []byte) *data.LogRecordPos {
 	item := &Item{key: key}
+	bt.lock.RLock()
 	resItem := bt.btree.Get(item)
+	bt.lock.RUnlock()
 
 	if resItem == nil {
 		return nil
 	}
-	return resItem.(*Item).pos //这个返回值没太懂 resItem到底是个啥
+	return resItem.(*Item).pos
 }
+
 func (bt *BTree) Delete(key []byte) bool {
 	item := &Item{key: key}
 	bt.lock.Lock()

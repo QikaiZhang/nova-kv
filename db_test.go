@@ -366,7 +366,52 @@ func TestOpen_TwoInstances(t *testing.T) {
 // =============================================================================
 
 func TestOpen_CRCValidation(t *testing.T) {
-	t.Skip("CRC 校验尚未实现")
+	dir := t.TempDir()
+
+	db, err := Open(Options{
+		DirPath:      dir,
+		DataFileSize: 256 * 1024 * 1024,
+		SyncWrites:   true,
+		IndexType:    BTree,
+	})
+	require.NoError(t, err)
+
+	// 写入一条记录，CRC 由 EncodeLogRecord 自动计算
+	writeAndSync(t, db, "key1", "value1")
+
+	// 正常读取：CRC 应该匹配
+	getTestData(t, db, "key1", "value1")
+
+	// 关闭后手动损坏第一条记录的 CRC 前 4 字节
+	activePath := data.GetDataFileName(dir, db.activeFile.FileId)
+	require.NoError(t, db.activeFile.Close())
+
+	f, err := os.OpenFile(activePath, os.O_RDWR, 0644)
+	require.NoError(t, err)
+
+	var crcBytes [4]byte
+	_, err = f.ReadAt(crcBytes[:], 0)
+	require.NoError(t, err)
+	crcBytes[0] ^= 0xFF
+	_, err = f.WriteAt(crcBytes[:], 0)
+	require.NoError(t, err)
+	require.NoError(t, f.Sync())
+	require.NoError(t, f.Close())
+
+	// 重启：CRC 损坏的记录被检测到，恢复过程报错但不影响启动
+	db2, err := Open(Options{
+		DirPath:      dir,
+		DataFileSize: 256 * 1024 * 1024,
+		IndexType:    BTree,
+	})
+	if err != nil {
+		t.Logf("expected corruption error: %v", err)
+	}
+	require.NotNil(t, db2, "DB should start even with corrupt CRC records")
+
+	// key1 的 CRC 被破坏，索引恢复时跳过，应返回 ErrKeyNotFound
+	_, err = db2.Get([]byte("key1"))
+	assert.ErrorIs(t, err, ErrKeyNotFound)
 }
 
 func TestOpen_HintFileRecovery(t *testing.T) {

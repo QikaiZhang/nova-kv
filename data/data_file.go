@@ -2,21 +2,21 @@ package data
 
 import (
 	"fmt"
+	"hash/crc32"
 	"io"
 	"nova-kv/fio"
 	"path/filepath"
 )
 
 const (
-	// DataFileNameSuffix 数据文件后缀
 	DataFileNameSuffix = ".data"
 )
 
 // DataFile 数据文件
 type DataFile struct {
-	FileId   uint32        // 文件 ID
-	WriteOff int64         // 当前写入偏移（仅 active file 有效）
-	IoManager fio.IOManager // IO 管理器
+	FileId    uint32
+	WriteOff  int64
+	IoManager fio.IOManager
 }
 
 // NewDataFile 创建/打开一个数据文件
@@ -38,45 +38,77 @@ func GetDataFileName(dirPath string, fileId uint32) string {
 	return filepath.Join(dirPath, fmt.Sprintf("%09d", fileId)+DataFileNameSuffix)
 }
 
-// Strongly Recommended to Handwrite
 // ReadLogRecord 从指定偏移量读取一条 LogRecord
-// 注意：ReadAt 在文件末尾同时返回数据和 io.EOF，需区分"读 0 字节+EOF"（真结尾）vs"读 N 字节+EOF"（最后一条记录）
+//
+// 流程：
+//  1. 边界检查：offset 不能超出文件大小，读不到 maxLogRecordHeaderSize 时只读到文件末尾
+//  2. 解码 header，拿到 headerSize、keySize、valueSize、seqNo、存储的 CRC
+//  3. 读取 key + value
+//  4. 将 header(跳过 CRC 前4字节) + key + value 拼成一个 buffer，重算 CRC 并比对
 func (df *DataFile) ReadLogRecord(offset int64) (*LogRecord, int64, error) {
-	headerBuf := make([]byte, maxLogRecordHeaderSize)
-	n, err := df.IoManager.Read(headerBuf, offset)
+	// 1. 边界检查
+	fileSize, err := df.IoManager.Size()
+	if err != nil {
+		return nil, 0, err
+	}
+	if offset >= fileSize {
+		return nil, 0, io.EOF
+	}
+	headerReadSize := int64(maxLogRecordHeaderSize)
+	if offset+headerReadSize > fileSize {
+		headerReadSize = fileSize - offset
+	}
 
-	// 读到 0 字节 + EOF = 真正文件末尾
+	// 2. 读取 header
+	headerBuf := make([]byte, headerReadSize)
+	n, err := df.IoManager.Read(headerBuf, offset)
 	if err == io.EOF && n == 0 {
 		return nil, 0, io.EOF
 	}
-	// 其他 I/O 错误（EOF 除外）= 真正的读取失败
 	if err != nil && err != io.EOF {
 		return nil, 0, err
 	}
 
-	// 即使 n < maxLogRecordHeaderSize，只要 header 能解码就继续
-	header, headerSize := DecodeLogRecordHeader(headerBuf[:n])
+	header, headerSize, err := DecodeLogRecordHeader(headerBuf[:n])
+	if err != nil {
+		return nil, 0, err
+	}
 	if header == nil || headerSize == 0 {
 		return nil, 0, fmt.Errorf("decode log record header failed")
 	}
 
-	record := &LogRecord{
-		Type: header.recordType,
-	}
-
-	// 读取 key 和 value（EOF 允许，因为可能刚好读到记录末尾）
-	kvSize := int(header.keySize + header.valueSize)
+	// 3. 读取 key + value
+	kvSize := int64(header.keySize + header.valueSize)
+	kvBuf := make([]byte, kvSize)
 	if kvSize > 0 {
-		kvBuf := make([]byte, kvSize)
 		_, err = df.IoManager.Read(kvBuf, offset+headerSize)
 		if err != nil && err != io.EOF {
 			return nil, 0, err
 		}
+	}
+
+	// 4. 构建 recordData 并验证 CRC
+	// recordData = Type + KeySize + ValueSize + SeqNo + Key + Value（不含 CRC）
+	recordData := append([]byte{}, headerBuf[4:int(headerSize)]...)
+	recordData = append(recordData, kvBuf...)
+
+	storedCRC := header.crc
+	computedCRC := crc32.ChecksumIEEE(recordData)
+	if storedCRC != computedCRC {
+		return nil, 0, fmt.Errorf("CRC mismatch: stored=%d, computed=%d", storedCRC, computedCRC)
+	}
+
+	// 5. 组装返回（包含 SeqNo）
+	record := &LogRecord{
+		Type:  header.recordType,
+		SeqNo: header.seqNo,
+	}
+	if kvSize > 0 {
 		record.Key = kvBuf[:header.keySize]
 		record.Value = kvBuf[header.keySize:]
 	}
 
-	size := headerSize + int64(kvSize)
+	size := headerSize + kvSize
 	return record, size, nil
 }
 
@@ -86,7 +118,6 @@ func (df *DataFile) Write(buf []byte) error {
 	if err != nil {
 		return err
 	}
-	// 更新写入偏移
 	df.WriteOff += int64(n)
 	return nil
 }

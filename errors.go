@@ -23,6 +23,9 @@ var (
 
 	// ErrOptionsIndexTypeUnknown 配置项：未知索引类型
 	ErrOptionsIndexTypeUnknown = errors.New("unknown index type")
+
+	// ErrBatchFull WriteBatch 已达最大容量
+	ErrBatchFull = errors.New("write batch is full, max batch size exceeded")
 )
 
 // CorruptedRecordError 损坏记录错误，携带文件 ID 和偏移信息

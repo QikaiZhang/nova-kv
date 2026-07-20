@@ -25,6 +25,10 @@ type DB struct {
 
 	// index 内存索引
 	index index.Indexer // 内存索引，接口类型，方便后续切换不同索引实现
+
+	// nextSeqNo 下一个事务序列号（仅由 WriteBatch.Commit 递增）
+	// 用于恢复时判断哪些 batch 已完整提交
+	nextSeqNo uint64
 }
 
 // Strongly Recommended to Handwrite
@@ -70,6 +74,7 @@ func Open(options Options) (*DB, error) {
 		mu:         new(sync.RWMutex),
 		olderFiles: make(map[uint32]*data.DataFile),
 		index:      idx,
+		nextSeqNo:  1, // 从 1 开始，0 留给非事务写入
 	}
 
 	// 5. 加载数据目录下的所有数据文件
@@ -107,11 +112,11 @@ func (db *DB) Put(key []byte, value []byte) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	// 2. 构造 LogRecord
+	// 2. 构造 LogRecord（SeqNo=0 表示非事务写入）
 	logRecord := &data.LogRecord{
-		Key:   key,
+		Key:  key,
 		Value: value,
-		Type:  data.LogRecordNormal,
+		Type: data.LogRecordNormal,
 	}
 
 	// 3. 追加写入
@@ -189,7 +194,7 @@ func (db *DB) Delete(key []byte) error {
 
 	// 写入墓碑记录
 	logRecord := &data.LogRecord{
-		Key:  key,
+		Key: key,
 		Type: data.LogRecordDeleted,
 	}
 	_, err := db.appendLogRecord(logRecord)
@@ -201,6 +206,122 @@ func (db *DB) Delete(key []byte) error {
 	db.index.Delete(key)
 	return nil
 }
+
+// =============================================================================
+// Close & Sync
+// =============================================================================
+
+// Close 关闭数据库，释放所有文件资源
+// 先 Sync 保证数据持久化，再依次关闭活跃文件和旧文件
+func (db *DB) Close() error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	// 先刷活跃文件
+	if db.activeFile != nil {
+		if err := db.activeFile.Sync(); err != nil {
+			return fmt.Errorf("failed to sync active file before close: %w", err)
+		}
+		if err := db.activeFile.Close(); err != nil {
+			return fmt.Errorf("failed to close active file: %w", err)
+		}
+	}
+
+	// 关闭旧文件（它们写满时已经持久化过）
+	for fid, df := range db.olderFiles {
+		if err := df.Close(); err != nil {
+			return fmt.Errorf("failed to close older file %d: %w", fid, err)
+		}
+	}
+
+	return nil
+}
+
+// Strongly Recommended to Handwrite
+// Sync 强制将活跃文件刷盘
+// 注意：只对活跃文件操作——旧文件在写满切换时已经 Sync 过了，不需要再次刷
+func (db *DB) Sync() error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if db.activeFile != nil {
+		return db.activeFile.Sync()
+	}
+	return nil
+}
+
+// =============================================================================
+// ListKeys & Fold —— 遍历数据
+// =============================================================================
+
+// Strongly Recommended to Handwrite
+// ListKeys 返回数据库中所有的 key
+// 复用索引迭代器，直接从内存索引中获取（索引全在内存，不需要读磁盘）
+func (db *DB) ListKeys() [][]byte {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	iter := db.index.NewIterator(index.IteratorOptions{})
+	defer iter.Close()
+
+	var keys [][]byte
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+		key := iter.Key()
+		if key == nil {
+			continue
+		}
+		// 拷贝 key，避免外部修改影响迭代器内部数据
+		keyCopy := make([]byte, len(key))
+		copy(keyCopy, key)
+		keys = append(keys, keyCopy)
+	}
+	return keys
+}
+
+// Strongly Recommended to Handwrite
+// Fold 遍历数据库中所有的 key-value 对
+// fn 返回 false 时提前终止遍历
+// 注意：value 需要从磁盘读取（索引只存位置，不缓存 value）
+func (db *DB) Fold(fn func(key []byte, value []byte) bool) error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	iter := db.index.NewIterator(index.IteratorOptions{})
+	defer iter.Close()
+
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+		key := iter.Key()
+		pos := iter.Value()
+		if key == nil || pos == nil {
+			continue
+		}
+
+		// 根据位置读磁盘
+		df, err := db.getDataFile(pos.Fid)
+		if err != nil {
+			return fmt.Errorf("fold: get data file %d: %w", pos.Fid, err)
+		}
+
+		logRecord, _, err := df.ReadLogRecord(pos.Offset)
+		if err != nil {
+			return fmt.Errorf("fold: read log record at offset %d: %w", pos.Offset, err)
+		}
+
+		// 跳过已删除的墓碑记录（理论不应该出现在索引中，防御性检查）
+		if logRecord.Type == data.LogRecordDeleted {
+			continue
+		}
+
+		if !fn(key, logRecord.Value) {
+			break
+		}
+	}
+	return nil
+}
+
+// =============================================================================
+// 内部辅助方法
+// =============================================================================
 
 // appendLogRecord 追加写入一条日志记录
 // 返回记录在文件中的位置信息
@@ -217,40 +338,48 @@ func (db *DB) appendLogRecord(logRecord *data.LogRecord) (*data.LogRecordPos, er
 
 	// 3. 检查当前 active file 写入后是否超过阈值
 	if db.activeFile.WriteOff+size > db.options.DataFileSize {
-		// 先把当前文件刷盘封存
+		// 先把当前文件持久化
 		if err := db.activeFile.Sync(); err != nil {
 			return nil, err
 		}
-		// 移入 olderFiles
+
+		// 当前文件归档
 		db.olderFiles[db.activeFile.FileId] = db.activeFile
-		// 打开新的 active file
+
+		// 创建新的活跃文件
 		if err := db.setActiveDataFile(); err != nil {
 			return nil, err
 		}
 	}
 
-	// 4. 记录写入偏移
+	// 4. 记录当前偏移
 	writeOff := db.activeFile.WriteOff
 
-	// 5. 写入文件
+	// 5. 写入磁盘
 	if err := db.activeFile.Write(encRecord); err != nil {
 		return nil, err
 	}
 
-	// 6. 配置决定是否每次刷盘
+	// 6. 根据配置决定是否立即刷盘
 	if db.options.SyncWrites {
 		if err := db.activeFile.Sync(); err != nil {
 			return nil, err
 		}
 	}
 
-	// 7. 返回位置信息
+	// 7. 构造并返回位置信息
 	pos := &data.LogRecordPos{
 		Fid:    db.activeFile.FileId,
 		Offset: writeOff,
 		Size:   uint32(size),
 	}
 	return pos, nil
+}
+
+// appendLogRecordWithPos 追加写入一条日志记录（不更新 index），返回位置
+// 供 WriteBatch 使用，写完后由 batch 统一更新索引
+func (db *DB) appendLogRecordWithPos(logRecord *data.LogRecord) (*data.LogRecordPos, error) {
+	return db.appendLogRecord(logRecord)
 }
 
 // setActiveDataFile 创建/设置新的活跃文件
@@ -345,9 +474,18 @@ func (db *DB) loadDataFiles() error {
 }
 
 // Strongly Recommended to Handwrite：理解磁盘是真相来源、索引可重建、墓碑记录的处理
+// 以及事务 SeqNo 的恢复逻辑
+//
 // loadIndexFromDataFiles 从所有数据文件重建内存索引
 // 从最老文件到最新文件逐条读取，同一 key 后处理的值覆盖先处理的
 // 遇到无法解码的记录时放弃当前文件剩余部分，继续下一个文件（保守安全策略）
+//
+// SeqNo 恢复逻辑（强烈建议手写理解）：
+//  1. SeqNo==0 的记录：普通 Put/Delete，直接应用到索引
+//  2. SeqNo>0 的记录：WriteBatch 写入，暂存到 pendingBatch 中，按 SeqNo 分组
+//  3. 遇到 LogRecordTxnFinished（携带 SeqNo=N）：将该 SeqNo 对应的暂存记录应用到索引，并清理
+//  4. 无论是否为 TxnFinished，都跟踪 maxSeqNo
+//  5. 遍历结束后，pendingBatch 中残留的记录 = 未完成的事务，丢弃（后续 merge 清理）
 func (db *DB) loadIndexFromDataFiles() error {
 	// Invariant:
 	// 如果数据库存在任何数据文件，activeFile 一定非 nil。
@@ -365,6 +503,16 @@ func (db *DB) loadIndexFromDataFiles() error {
 	sort.Ints(fileIds)
 
 	var corruptedRecords []*CorruptedRecordError
+
+	// pendingBatch: 按 SeqNo 分组暂存未完成事务的记录
+	// map[seqNo] -> []pendingInfo
+	type pendingInfo struct {
+		key   []byte
+		pos   *data.LogRecordPos
+		rtype data.LogRecordType
+	}
+	pendingBatch := make(map[uint64][]pendingInfo)
+	var maxSeqNo uint64
 
 	// 遍历每个文件，逐条读取并更新索引
 	for _, fid := range fileIds {
@@ -392,6 +540,28 @@ func (db *DB) loadIndexFromDataFiles() error {
 				break
 			}
 
+			// 跟踪最大 SeqNo（含 TxnFinished 的 SeqNo）
+			if logRecord.SeqNo > maxSeqNo {
+				maxSeqNo = logRecord.SeqNo
+			}
+
+			// 检查是否为事务完成标记
+			if logRecord.Type == data.LogRecordTxnFinished {
+				// 该 SeqNo 的 batch 已完整提交，将对应暂存记录应用到索引
+				if records, ok := pendingBatch[logRecord.SeqNo]; ok {
+					for _, p := range records {
+						if p.rtype == data.LogRecordNormal {
+							db.index.Put(p.key, p.pos)
+						} else if p.rtype == data.LogRecordDeleted {
+							db.index.Delete(p.key)
+						}
+					}
+					delete(pendingBatch, logRecord.SeqNo)
+				}
+				offset += size
+				continue
+			}
+
 			// 构建索引位置
 			pos := &data.LogRecordPos{
 				Fid:    uint32(fid),
@@ -399,17 +569,35 @@ func (db *DB) loadIndexFromDataFiles() error {
 				Size:   uint32(size),
 			}
 
-			// 根据记录类型更新索引
-			// 未知记录类型被静默忽略（向前兼容）
-			if logRecord.Type == data.LogRecordNormal {
-				db.index.Put(logRecord.Key, pos)
-			} else if logRecord.Type == data.LogRecordDeleted {
-				db.index.Delete(logRecord.Key)
+			if logRecord.SeqNo > 0 {
+				// 事务写入：按 SeqNo 分组暂存，等对应的 TxnFinished 标记
+				pendingBatch[logRecord.SeqNo] = append(pendingBatch[logRecord.SeqNo], pendingInfo{
+					key:   logRecord.Key,
+					pos:   pos,
+					rtype: logRecord.Type,
+				})
+			} else {
+				// 普通写入：直接应用
+				if logRecord.Type == data.LogRecordNormal {
+					db.index.Put(logRecord.Key, pos)
+				} else if logRecord.Type == data.LogRecordDeleted {
+					db.index.Delete(logRecord.Key)
+				}
+				// 未知记录类型被静默忽略（向前兼容）
 			}
 
 			offset += size
 		}
 	}
+
+	// 恢复 nextSeqNo：在最大 SeqNo 基础上 +1
+	// 如果没有任何事务记录，保持默认值 1
+	if maxSeqNo > 0 {
+		db.nextSeqNo = maxSeqNo + 1
+	}
+
+	// 遍历结束后 pendingBatch 中仍有记录 = 未完成的事务（脏数据），丢弃
+	// 后续 merge 时这些垃圾数据会被清理
 
 	// 如果有损坏记录，返回第一个作为聚合错误，备注：提前设计后续待优化
 	if len(corruptedRecords) > 0 {
